@@ -1,23 +1,43 @@
-// A Channel-based implementation of the concurrent prime sieve using the sive of atkin
+// A Channel-based implementation of a concurrent prime sieve using the sieve of eratosthenes with wheel factorization optimization
 
 package main
 
 import (
+	"container/ring"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 )
 
-func GenerateCandidates(ch chan<- int) {
+func wheel2357() *ring.Ring {
+
+	var gaps2357 = []int{2, 4, 2, 4, 6, 2, 6, 4, 2, 4, 6, 6, 2, 6, 4, 2, 6, 4, 6, 8, 4, 2, 4, 2, 4, 8, 6, 4, 6, 2, 4, 6, 2, 6, 6, 4, 2, 4, 6, 2, 6, 4, 2, 4, 2, 10, 2, 10}
+	r := ring.New(len(gaps2357))
+	for _, i := range gaps2357 {
+		r.Value = i
+		r = r.Next()
+	}
+	return r
+}
+
+func generateCandidates(ch chan<- int) {
 	ch <- 2
 	ch <- 3
-	for i, t := 5, 2; ; i, t = i+t, 6-t {
+	ch <- 5
+	ch <- 7
+	nextGap := wheel2357()
+
+	var gap int
+	for i := 11; ; nextGap = nextGap.Next() {
+
 		ch <- i
+		gap = nextGap.Value.(int)
+		i += gap
 	}
 }
 
-func FilterPrimes(in <-chan int, out chan<- int, prime int) {
+func filterPrimes(in <-chan int, out chan<- int, prime int) {
 	for {
 
 		i := <-in
@@ -48,12 +68,12 @@ func main() {
 func GenPrimes(numPrimes int) []int {
 	ch := make(chan int)
 	primes := make([]int, numPrimes)
-	go GenerateCandidates(ch)
+	go generateCandidates(ch)
 	for i := 0; i < numPrimes; i++ {
 		prime := <-ch
 		primes[i] = prime
 		ch1 := make(chan int)
-		go FilterPrimes(ch, ch1, prime)
+		go filterPrimes(ch, ch1, prime)
 		ch = ch1
 	}
 	return primes
